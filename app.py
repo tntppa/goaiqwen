@@ -107,26 +107,10 @@ def index():
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    file = request.files.get("file")
-    if not file or file.filename == "":
+    # 多文件上传：前端使用同一个 key=file 多次 append，后端统一用 getlist 接收。
+    files = [file for file in request.files.getlist("file") if file and file.filename]
+    if not files:
         return jsonify({"error": "未收到文件"}), 400
-
-    fname = file.filename or ""
-    filename_ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
-
-    is_excel = filename_ext in ("xls", "xlsx") or file.content_type in (
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-    is_word = filename_ext in ("doc", "docx") or file.content_type in (
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
-    is_pdf = file.content_type == "application/pdf" or filename_ext == "pdf"
-    is_image = file.content_type in ("image/jpeg", "image/png") or filename_ext in ("jpg", "jpeg", "png")
-
-    if not any([is_excel, is_word, is_pdf, is_image]):
-        return jsonify({"error": "文件格式不支持，仅支持 JPG、PNG、PDF、XLS、XLSX、DOC、DOCX"}), 400
 
     def call_ollama(prompt, images_b64=None):
         payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
@@ -149,85 +133,119 @@ def analyze():
         except Exception as e:
             return jsonify({"error": sanitize_text(e)}), 500
 
-    if is_image:
-        try:
-            img_b64 = base64.b64encode(file.read()).decode("utf-8")
-        except Exception as e:
-            return jsonify({"error": f"图片读取失败：{sanitize_text(e)}"}), 500
-        return call_ollama(get_image_prompt(), [img_b64])
+    # 所有图片、PDF 页、Word 页统一汇总到一个图片列表；所有 Excel 文本统一汇总后插入 prompt。
+    images_b64 = []
+    excel_parts = []
 
-    if is_pdf:
-        try:
-            pages = convert_from_bytes(file.read(), dpi=200, fmt="png")
-        except Exception as e:
-            return jsonify({"error": f"PDF 转换失败，请确认已安装 poppler：{sanitize_text(e)}"}), 500
-        images_b64 = []
-        for page in pages:
-            buf = io.BytesIO()
-            page.save(buf, format="PNG")
-            images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
-        return call_ollama(get_image_prompt(), images_b64)
+    for file in files:
+        fname = file.filename or ""
+        filename_ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
 
-    if is_word:
-        try:
-            from docx2pdf import convert as docx2pdf_convert
-        except ImportError:
-            return jsonify({"error": "缺少 docx2pdf 依赖，请执行: pip install docx2pdf"}), 500
-        try:
-            word_bytes = file.read()
-            with tempfile.TemporaryDirectory() as tmpdir:
-                suffix = f".{filename_ext}" if filename_ext in ("doc", "docx") else ".docx"
-                word_path = os.path.join(tmpdir, f"input{suffix}")
-                pdf_path = os.path.join(tmpdir, "output.pdf")
-                with open(word_path, "wb") as f_tmp:
-                    f_tmp.write(word_bytes)
-                try:
-                    import pythoncom
-                    pythoncom.CoInitialize()
-                except ImportError:
-                    pass
-                try:
-                    docx2pdf_convert(word_path, pdf_path)
-                finally:
+        is_excel = filename_ext in ("xls", "xlsx") or file.content_type in (
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        is_word = filename_ext in ("doc", "docx") or file.content_type in (
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        is_pdf = file.content_type == "application/pdf" or filename_ext == "pdf"
+        is_image = file.content_type in ("image/jpeg", "image/png") or filename_ext in ("jpg", "jpeg", "png")
+
+        if not any([is_excel, is_word, is_pdf, is_image]):
+            return jsonify({"error": f"文件格式不支持：{sanitize_text(fname)}，仅支持 JPG、PNG、PDF、XLS、XLSX、DOC、DOCX"}), 400
+
+        # 1) 原生图片：直接转 base64，保持现有逻辑。
+        if is_image:
+            try:
+                images_b64.append(base64.b64encode(file.read()).decode("utf-8"))
+            except Exception as e:
+                return jsonify({"error": f"图片读取失败（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
+            continue
+
+        # 2) PDF：逐页转 PNG 后追加到同一个 images_b64 列表。
+        if is_pdf:
+            try:
+                pages = convert_from_bytes(file.read(), dpi=200, fmt="png")
+            except Exception as e:
+                return jsonify({"error": f"PDF 转换失败，请确认已安装 poppler（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
+            for page in pages:
+                buf = io.BytesIO()
+                page.save(buf, format="PNG")
+                images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
+            continue
+
+        # 3) Word：先转 PDF，再逐页转图片，保持现有 docx2pdf + pdf2image 逻辑。
+        if is_word:
+            try:
+                from docx2pdf import convert as docx2pdf_convert
+            except ImportError:
+                return jsonify({"error": "缺少 docx2pdf 依赖，请执行: pip install docx2pdf"}), 500
+            try:
+                word_bytes = file.read()
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    suffix = f".{filename_ext}" if filename_ext in ("doc", "docx") else ".docx"
+                    word_path = os.path.join(tmpdir, f"input{suffix}")
+                    pdf_path = os.path.join(tmpdir, "output.pdf")
+                    with open(word_path, "wb") as f_tmp:
+                        f_tmp.write(word_bytes)
                     try:
                         import pythoncom
-                        pythoncom.CoUninitialize()
+                        pythoncom.CoInitialize()
                     except ImportError:
                         pass
-                with open(pdf_path, "rb") as f_pdf:
-                    pages = convert_from_bytes(f_pdf.read(), dpi=200, fmt="png")
-        except Exception as e:
-            return jsonify({"error": f"Word 转换失败（需本机已安装 Microsoft Word）：{sanitize_text(e)}"}), 500
-        images_b64 = []
-        for page in pages:
-            buf = io.BytesIO()
-            page.save(buf, format="PNG")
-            images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
-        return call_ollama(get_word_prompt(), images_b64)
+                    try:
+                        docx2pdf_convert(word_path, pdf_path)
+                    finally:
+                        try:
+                            import pythoncom
+                            pythoncom.CoUninitialize()
+                        except ImportError:
+                            pass
+                    with open(pdf_path, "rb") as f_pdf:
+                        pages = convert_from_bytes(f_pdf.read(), dpi=200, fmt="png")
+            except Exception as e:
+                return jsonify({"error": f"Word 转换失败（需本机已安装 Microsoft Word，文件：{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
+            for page in pages:
+                buf = io.BytesIO()
+                page.save(buf, format="PNG")
+                images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
+            continue
 
-    if is_excel:
-        try:
-            file_bytes = file.read()
-            if filename_ext == "xls":
-                try:
-                    xls = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None, engine="xlrd")
-                except Exception:
+        # 4) Excel：读取所有 sheet，转成文本后按文件名收集，最后统一拼接到 prompt。
+        if is_excel:
+            try:
+                file_bytes = file.read()
+                if filename_ext == "xls":
+                    try:
+                        xls = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None, engine="xlrd")
+                    except Exception:
+                        xls = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None, engine="openpyxl")
+                else:
                     xls = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None, engine="openpyxl")
-            else:
-                xls = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None, engine="openpyxl")
-        except Exception as e:
-            return jsonify({"error": f"Excel 解析失败：{sanitize_text(e)}"}), 500
-        try:
-            parts = []
-            for sheet_name, df in xls.items():
-                df = df.fillna("").astype(str)
-                parts.append(f"[Sheet: {sheet_name}]\n{df.to_string(index=False)}")
-            excel_text = "\n\n".join(parts)
-        except Exception as e:
-            return jsonify({"error": f"Excel 数据转换失败：{sanitize_text(e)}"}), 500
-        return call_ollama(build_excel_prompt(excel_text))
+            except Exception as e:
+                return jsonify({"error": f"Excel 解析失败（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
 
-    return jsonify({"error": "未知文件类型"}), 400
+            try:
+                parts = []
+                for sheet_name, df in xls.items():
+                    df = df.fillna("").astype(str)
+                    parts.append(f"[Sheet: {sheet_name}]\n{df.to_string(index=False)}")
+                excel_parts.append((fname, "\n\n".join(parts)))
+            except Exception as e:
+                return jsonify({"error": f"Excel 数据转换失败（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
+
+    if not images_b64 and not excel_parts:
+        return jsonify({"error": "未得到可分析的图片或表格内容"}), 400
+
+    excel_text = "\n\n".join(
+        f"[Excel 文件: {fname}]\n{part}"
+        for fname, part in excel_parts
+    )
+
+    # 统一只调用一次模型：有 Excel 时使用 excel prompt，否则使用 common prompt。
+    prompt = build_excel_prompt(excel_text) if excel_parts else get_image_prompt()
+    return call_ollama(prompt, images_b64 if images_b64 else None)
 
 
 if __name__ == "__main__":

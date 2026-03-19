@@ -5,6 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>报关单识别 - Ollama qwen2.5vl:7b</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #selection-summary {
+            display: none;
+            margin-top: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4f8ef7;
+        }
+
+        #preview-wrap {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .file-card {
+            border: 1px solid #e5eaf3;
+            border-radius: 10px;
+            background: #f8faff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 140px;
+        }
+
+        .file-thumb {
+            height: 90px;
+            background: #edf3ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            color: #4f8ef7;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .file-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .file-type-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 56px;
+            min-height: 28px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid #bfd3ff;
+        }
+
+        .file-name {
+            padding: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1a1a2e;
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .file-card.more-card .file-thumb {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .file-card.more-card .file-name {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #4f8ef7;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -12,18 +97,19 @@
     <p class="subtitle">上传文件，由 Ollama qwen2.5vl:7b 模型提取报关要素</p>
 
     <div class="upload-area" id="upload-area">
-        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx">
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx" multiple>
         <div class="upload-icon">📄</div>
-        <p>点击或拖拽文件到此处</p>
-        <p class="hint">支持 JPG、PNG、PDF、XLS、XLSX、DOC、DOCX 格式</p>
+        <p>点击或拖拽多个文件到此处</p>
+        <p class="hint">支持 JPG、PNG、PDF、XLS、XLSX、DOC、DOCX 任意组合上传</p>
     </div>
+
+    <div id="selection-summary">已选择 0 个文件</div>
 
     <div id="preview-wrap">
-        <img id="preview" src="" alt="预览">
+        <div id="preview-grid" class="preview-grid"></div>
     </div>
-    <div id="pdf-info" style="display:none; margin-top:16px;"></div>
 
-    <button class="btn" id="submit-btn" disabled>上传并分析</button>
+    <button class="btn" id="submit-btn" disabled>上传并分析所有文件</button>
 
     <div id="result-wrap">
         <h3>分析结果 <span id="elapsed-time"></span></h3>
@@ -33,6 +119,14 @@
 
 <aside class="changelog">
     <h2>更新日志</h2>
+    <div class="log-item">
+        <div class="log-date">2026-03-19 v8</div>
+        <ul class="log-desc">
+            <li>支持多文件同时上传与混合格式识别</li>
+            <li>前端新增多文件网格预览与数量提示</li>
+            <li>后端统一汇总图片与 Excel 文本后单次调用模型</li>
+        </ul>
+    </div>
     <div class="log-item">
         <div class="log-date">2026-03-19 v7</div>
         <ul class="log-desc">
@@ -92,6 +186,176 @@
     </div>
 </aside>
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script>
+    const fileInput = document.getElementById('file-input');
+    const uploadArea = document.getElementById('upload-area');
+    const selectionSummary = document.getElementById('selection-summary');
+    const previewWrap = document.getElementById('preview-wrap');
+    const previewGrid = document.getElementById('preview-grid');
+    const submitBtn = document.getElementById('submit-btn');
+    const resultWrap = document.getElementById('result-wrap');
+    const resultText = document.getElementById('result-text');
+    const elapsedTime = document.getElementById('elapsed-time');
+
+    let selectedFiles = [];
+
+    function getExt(name) {
+        return name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+    }
+
+    function getTypeLabel(file) {
+        const ext = getExt(file.name);
+        if (['jpg', 'jpeg', 'png'].includes(ext)) {
+            return '图片';
+        }
+        if (ext === 'pdf') {
+            return 'PDF';
+        }
+        if (['xls', 'xlsx'].includes(ext)) {
+            return 'Excel';
+        }
+        if (['doc', 'docx'].includes(ext)) {
+            return 'Word';
+        }
+        return ext ? ext.toUpperCase() : '文件';
+    }
+
+    function resetResult() {
+        resultWrap.style.display = 'none';
+        resultText.textContent = '';
+        elapsedTime.textContent = '';
+    }
+
+    function createFileCard(file) {
+        const card = document.createElement('div');
+        card.className = 'file-card';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'file-thumb';
+
+        const fileName = document.createElement('div');
+        fileName.className = 'file-name';
+        fileName.textContent = file.name;
+
+        const ext = getExt(file.name);
+        if (['jpg', 'jpeg', 'png'].includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = file.name;
+                thumb.innerHTML = '';
+                thumb.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+            thumb.textContent = '加载中';
+        } else {
+            const label = document.createElement('div');
+            label.className = 'file-type-label';
+            label.textContent = getTypeLabel(file);
+            thumb.appendChild(label);
+        }
+
+        card.appendChild(thumb);
+        card.appendChild(fileName);
+        return card;
+    }
+
+    function renderFilePreview(files) {
+        previewGrid.innerHTML = '';
+
+        if (!files.length) {
+            selectionSummary.style.display = 'none';
+            previewWrap.style.display = 'none';
+            submitBtn.disabled = true;
+            return;
+        }
+
+        selectionSummary.style.display = 'block';
+        selectionSummary.textContent = '已选择 ' + files.length + ' 个文件';
+        previewWrap.style.display = 'block';
+        submitBtn.disabled = false;
+
+        files.slice(0, 6).forEach((file) => {
+            previewGrid.appendChild(createFileCard(file));
+        });
+
+        if (files.length > 6) {
+            const moreCard = document.createElement('div');
+            moreCard.className = 'file-card more-card';
+            moreCard.innerHTML = '<div class="file-thumb">+' + (files.length - 6) + '</div><div class="file-name">还有更多文件</div>';
+            previewGrid.appendChild(moreCard);
+        }
+    }
+
+    function setFiles(fileList) {
+        selectedFiles = Array.from(fileList || []).filter((file) => file && file.name);
+        renderFilePreview(selectedFiles);
+        resetResult();
+    }
+
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', function() {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+            setFiles(e.dataTransfer.files);
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files && fileInput.files.length) {
+            setFiles(fileInput.files);
+        }
+        fileInput.value = '';
+    });
+
+    submitBtn.addEventListener('click', async function() {
+        if (!selectedFiles.length) {
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading"></span>处理中，请稍候...';
+        resetResult();
+
+        const formData = new FormData();
+        // 多文件统一使用同一个 key=file 提交，后端通过 getlist("file") 接收。
+        selectedFiles.forEach((file) => {
+            formData.append('file', file);
+        });
+
+        const t0 = performance.now();
+        try {
+            const resp = await fetch('/analyze', { method: 'POST', body: formData });
+            const data = await resp.json();
+            const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+            resultWrap.style.display = 'block';
+            elapsedTime.textContent = '用时 ' + elapsed + ' 秒';
+
+            if (data.error) {
+                resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';
+            } else {
+                resultText.textContent = data.result;
+            }
+        } catch (err) {
+            const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+            resultWrap.style.display = 'block';
+            elapsedTime.textContent = '用时 ' + elapsed + ' 秒';
+            resultText.innerHTML = '<span class="error">请求失败，请检查服务是否正常运行。</span>';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '上传并分析所有文件';
+        }
+    });
+</script>
 </body>
 </html>

@@ -38,7 +38,7 @@
       "g_model": "规格型号",
       "qty": "数量",
       "unit": "单位",
-      "net_weight": "净重",
+      "net_weight": "净重",``
       "total_price": "总价"
     }
   ],
