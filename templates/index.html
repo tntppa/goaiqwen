@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报关单识别 - Ollama qwen2.5vl:7b</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>报关单识别</h1>
+    <p class="subtitle">上传文件，由 Ollama qwen2.5vl:7b 模型提取报关要素</p>
+
+    <div class="upload-area" id="upload-area">
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx">
+        <div class="upload-icon">📄</div>
+        <p>点击或拖拽文件到此处</p>
+        <p class="hint">支持 JPG、PNG、PDF、XLS、XLSX、DOC、DOCX 格式</p>
+    </div>
+
+    <div id="preview-wrap">
+        <img id="preview" src="" alt="预览">
+    </div>
+    <div id="pdf-info" style="display:none; margin-top:16px;"></div>
+
+    <button class="btn" id="submit-btn" disabled>上传并分析</button>
+
+    <div id="result-wrap">
+        <h3>分析结果 <span id="elapsed-time"></span></h3>
+        <div id="result-text"></div>
+    </div>
+</div>
+
+<aside class="changelog">
+    <h2>更新日志</h2>
+    <div class="log-item">
+        <div class="log-date">2026-03-19 v7</div>
+        <ul class="log-desc">
+            <li>提示词从主文件拆分到 prompts 目录独立维护</li>
+            <li>后端改为从 Markdown 文件动态读取提示词</li>
+            <li>保留 v5 / v6 多版本提示词便于对比效果</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-19 v6</div>
+        <ul class="log-desc">
+            <li>前后端代码拆分为模板与静态资源目录</li>
+            <li>首页改为使用 templates/index.html 渲染</li>
+            <li>样式与脚本迁移到 static 目录独立维护</li>
+            <li>补充响应文本净化，避免 Unicode 代理字符报错</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-19 v5</div>
+        <ul class="log-desc">
+            <li>升级 Prompt 为多文档整合模式</li>
+            <li>支持跨文档上下文关联校核</li>
+            <li>Items 跨文档汇总合并输出</li>
+            <li>冲突字段自动写入 error_check_notes</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-17 v4</div>
+        <ul class="log-desc">
+            <li>支持 DOC/DOCX 转图片识别</li>
+            <li>各格式 Prompt 独立维护</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-17 v3</div>
+        <ul class="log-desc">
+            <li>分析结果显示用时（秒）</li>
+            <li>页面右侧新增更新日志</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-17 v2</div>
+        <ul class="log-desc">
+            <li>新增 XLS/XLSX 上传支持</li>
+            <li>pandas 读取 Excel 发给 AI</li>
+            <li>修复 pdftoppm 依赖缺失</li>
+        </ul>
+    </div>
+    <div class="log-item">
+        <div class="log-date">2026-03-17 初版</div>
+        <ul class="log-desc">
+            <li>支持 JPG/PNG 图片识别</li>
+            <li>支持 PDF 转图片识别</li>
+            <li>结构化 JSON 报关要素输出</li>
+            <li>Ollama qwen2.5vl:7b 集成</li>
+        </ul>
+    </div>
+</aside>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
