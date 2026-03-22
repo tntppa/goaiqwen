@@ -8,6 +8,17 @@ import requests
 from flask import Flask, jsonify, render_template, request
 from pdf2image import convert_from_bytes
 
+from config.generation_config import (
+    generation_kwargs,
+    model_config,
+    prompt_file_map,
+    prompt_version,
+)
+
+
+
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
@@ -16,18 +27,55 @@ app = Flask(
 )
 
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_HEALTH_URL = "http://localhost:11434/api/tags"
-MODEL_NAME = "qwen2.5vl:7b"
+OLLAMA_URL = model_config["ollama_url"]
+OLLAMA_HEALTH_URL = model_config["ollama_health_url"]
+MODEL_NAME = model_config["model_name"]
+
 PROMPTS_DIR = os.path.join(BASE_DIR, "prompts")
-PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v6")
-PROMPT_FILE_MAP = {
-    "common": "common.md",
-    "excel": "excel.md",
-}
+PROMPT_VERSION = prompt_version
+PROMPT_FILE_MAP = prompt_file_map
+
+
+
+
+def validate_generation_kwargs() -> None:
+    do_sample = generation_kwargs.get("do_sample", False)
+    num_beams = generation_kwargs.get("num_beams", 1)
+    use_cache = generation_kwargs.get("use_cache", True)
+
+    if not isinstance(do_sample, bool):
+        raise ValueError("config/generation_config.py 中的 do_sample 必须为布尔值")
+    if not isinstance(num_beams, int) or num_beams < 1:
+        raise ValueError("config/generation_config.py 中的 num_beams 必须为大于等于 1 的整数")
+    if num_beams != 1:
+        raise ValueError("当前 Ollama 接口不支持 beam search，num_beams 必须保持为 1")
+    if not isinstance(use_cache, bool):
+        raise ValueError("config/generation_config.py 中的 use_cache 必须为布尔值")
+
+
+
+def build_ollama_options() -> dict[str, float | int]:
+    validate_generation_kwargs()
+    options = {
+        "temperature": generation_kwargs.get("temperature", 0.0),
+        "top_p": generation_kwargs.get("top_p", 1.0),
+        "repeat_penalty": generation_kwargs.get("repetition_penalty", 1.0),
+        "num_predict": generation_kwargs.get("max_new_tokens", 1024),
+    }
+    if generation_kwargs.get("do_sample") is False:
+        options["top_k"] = 1
+    return options
+
+
+
+def build_keep_alive() -> str | int:
+    validate_generation_kwargs()
+    return "30m" if generation_kwargs.get("use_cache", True) else 0
+
 
 
 def get_available_prompt_versions() -> list[str]:
+
     if not os.path.isdir(PROMPTS_DIR):
         return []
     return sorted(
@@ -79,7 +127,9 @@ def sanitize_text(value: object) -> str:
 def check_ollama_connection() -> None:
     """启动时检测 Ollama 服务是否可达"""
     try:
+        validate_generation_kwargs()
         resp = requests.get(OLLAMA_HEALTH_URL, timeout=5)
+
         resp.raise_for_status()
         models = [m.get("name", "") for m in resp.json().get("models", [])]
         print(f"[OK] Ollama 连接成功，已加载模型：{models}")
@@ -113,7 +163,15 @@ def analyze():
         return jsonify({"error": "未收到文件"}), 400
 
     def call_ollama(prompt, images_b64=None):
-        payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
+        payload = {
+            "model": MODEL_NAME,
+            "prompt": prompt,
+            "stream": False,
+            "options": build_ollama_options(),
+            "keep_alive": build_keep_alive(),
+        }
+
+
         if images_b64:
             payload["images"] = images_b64
         try:

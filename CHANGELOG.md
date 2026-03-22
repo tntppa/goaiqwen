@@ -1,46 +1,51 @@
-# 更新日志
+# Changelog
 
-本文件记录项目的重要更新内容。
+All notable updates to this project are documented in this file.
+
+## 2026-03-21 v9
+- Added `config/generation_config.py` for centralized model generation settings.
+- Configured the model for faster and more deterministic output for extraction, OCR, and structured parsing tasks.
+- Updated the backend to load generation parameters from the config file and apply them to Ollama requests.
 
 ## 2026-03-19 v8
-- 支持一次请求上传多个文件。
-- 支持图片、PDF、Excel、Word 的混合格式联合识别。
-- 前端新增多文件选择、拖拽上传、文件数量提示和网格预览。
-- 后端统一汇总图片与 Excel 文本后，每次请求只调用一次模型。
+- Added support for uploading multiple files in one request.
+- Added mixed-format analysis for images, PDF, Excel, and Word files.
+- Updated the frontend with multi-file selection, drag-and-drop, file count, and grid preview.
+- Updated the backend to aggregate all images and Excel text, then call the model once per request.
 
 ## 2026-03-19 v7
-- 将提示词从 `app.py` 中拆分到 `prompts/` 目录独立维护。
-- 提示词文件改为使用 Markdown 格式。
-- 新增 `v5` 和 `v6` 两套版本化提示词，便于对比与迭代。
-- 后端改为动态读取提示词模板。
+- Moved prompts out of `app.py` into the `prompts/` directory.
+- Switched prompt management to Markdown files.
+- Added versioned prompts with `v5` and `v6` for easier comparison and iteration.
+- Updated the backend to load prompt templates dynamically.
 
 ## 2026-03-19 v6
-- 将前端代码拆分到 `templates/` 与 `static/` 目录。
-- 首页改为通过 `render_template("index.html")` 渲染。
-- 样式和脚本独立管理，便于维护。
-- 增加响应文本净化，避免 Unicode 代理字符导致报错。
+- Split frontend code into `templates/` and `static/` directories.
+- Switched the homepage to `render_template("index.html")`.
+- Separated page styles and scripts for easier maintenance.
+- Added response text sanitization to avoid Unicode surrogate character errors.
 
 ## 2026-03-19 v5
-- 升级为多文档整合型提示词策略。
-- 增加跨文档上下文关联与校核能力。
-- 支持跨文档合并 `items` 信息并统一输出。
-- 冲突字段自动写入 `error_check_notes`。
+- Upgraded the prompt strategy for multi-document consolidation.
+- Added cross-document context correlation and validation.
+- Merged item information across documents into a unified output.
+- Added automatic conflict reporting in `error_check_notes`.
 
 ## 2026-03-17 v4
-- 新增 DOC 和 DOCX 转图片识别能力。
-- 优化不同文档类型的提示词处理方式。
+- Added support for converting DOC and DOCX files into images for recognition.
+- Improved prompt handling for different document types.
 
 ## 2026-03-17 v3
-- 分析结果新增耗时显示。
-- 页面右侧新增更新日志面板。
+- Added elapsed time display for analysis results.
+- Added the changelog panel on the right side of the page.
 
 ## 2026-03-17 v2
-- 新增 XLS 和 XLSX 上传支持。
-- 使用 `pandas` 读取 Excel 内容后再发送给 AI 模型。
-- 修复缺少 `pdftoppm` 依赖的问题。
+- Added XLS and XLSX upload support.
+- Added Excel parsing with `pandas` before sending content to the AI model.
+- Fixed the missing `pdftoppm` dependency issue.
 
-## 2026-03-17 初版
-- 支持 JPG 和 PNG 图片识别。
-- 支持 PDF 转图片识别。
-- 支持结构化 JSON 报关要素输出。
-- 集成 `Ollama` 与 `qwen2.5vl:7b`。
+## 2026-03-17 Initial Release
+- Added JPG and PNG image recognition.
+- Added PDF-to-image recognition.
+- Added structured JSON output for customs declaration extraction.
+- Integrated `Ollama` with `qwen2.5vl:7b`.

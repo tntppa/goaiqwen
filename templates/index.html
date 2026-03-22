@@ -120,6 +120,14 @@
 <aside class="changelog">
     <h2>更新日志</h2>
     <div class="log-item">
+        <div class="log-date">2026-03-21 v9</div>
+        <ul class="log-desc">
+            <li>新增 `config/generation_config.py` 统一维护模型生成参数</li>
+            <li>启用更快、更确定的推理配置，适合 OCR、结构化提取与表格解析</li>
+            <li>后端调用 Ollama 时自动加载并应用这些参数</li>
+        </ul>
+    </div>
+    <div class="log-item">
         <div class="log-date">2026-03-19 v8</div>
         <ul class="log-desc">
             <li>支持多文件同时上传与混合格式识别</li>
@@ -127,6 +135,7 @@
             <li>后端统一汇总图片与 Excel 文本后单次调用模型</li>
         </ul>
     </div>
+
     <div class="log-item">
         <div class="log-date">2026-03-19 v7</div>
         <ul class="log-desc">
