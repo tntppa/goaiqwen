@@ -5,7 +5,8 @@ import tempfile
 
 import pandas as pd
 import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
+
 from pdf2image import convert_from_bytes
 
 from config.generation_config import (
@@ -14,6 +15,8 @@ from config.generation_config import (
     prompt_file_map,
     prompt_version,
 )
+from model_info import get_model_runtime_info
+
 
 
 
@@ -34,6 +37,8 @@ MODEL_NAME = model_config["model_name"]
 PROMPTS_DIR = os.path.join(BASE_DIR, "prompts")
 PROMPT_VERSION = prompt_version
 PROMPT_FILE_MAP = prompt_file_map
+CHANGELOG_PATH = os.path.join(BASE_DIR, "CHANGELOG.md")
+
 
 
 
@@ -60,7 +65,7 @@ def build_ollama_options() -> dict[str, float | int]:
         "temperature": generation_kwargs.get("temperature", 0.0),
         "top_p": generation_kwargs.get("top_p", 1.0),
         "repeat_penalty": generation_kwargs.get("repetition_penalty", 1.0),
-        "num_predict": generation_kwargs.get("max_new_tokens", 1024),
+        "num_predict": generation_kwargs.get("max_new_tokens", 4096),
     }
     if generation_kwargs.get("do_sample") is False:
         options["top_k"] = 1
@@ -119,12 +124,48 @@ def build_excel_prompt(excel_text: str) -> str:
 
 
 
+def read_changelog() -> str:
+    with open(CHANGELOG_PATH, "r", encoding="utf-8") as changelog_file:
+        return changelog_file.read().strip()
+
+
+
 def sanitize_text(value: object) -> str:
+
     text = value if isinstance(value, str) else str(value)
     return ''.join(ch for ch in text if not 0xD800 <= ord(ch) <= 0xDFFF)
 
 
+def _safe_int(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return None
+
+
+def extract_total_tokens(response_json: dict[str, object], prompt: str, result_text: str) -> int:
+    usage = response_json.get("usage")
+    if isinstance(usage, dict):
+        total_tokens = _safe_int(usage.get("total_tokens"))
+        if total_tokens is not None:
+            return total_tokens
+
+        prompt_tokens = _safe_int(usage.get("prompt_tokens") or usage.get("input_tokens"))
+        completion_tokens = _safe_int(usage.get("completion_tokens") or usage.get("output_tokens"))
+        if prompt_tokens is not None and completion_tokens is not None:
+            return prompt_tokens + completion_tokens
+
+    prompt_eval_count = _safe_int(response_json.get("prompt_eval_count"))
+    eval_count = _safe_int(response_json.get("eval_count"))
+    if prompt_eval_count is not None and eval_count is not None:
+        return prompt_eval_count + eval_count
+
+    return max(1, len(prompt) // 4) + max(1, len(result_text) // 4)
+
+
 def check_ollama_connection() -> None:
+
     """启动时检测 Ollama 服务是否可达"""
     try:
         validate_generation_kwargs()
@@ -155,22 +196,39 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/changelog", methods=["GET"])
+def changelog_endpoint():
+    try:
+        return Response(read_changelog(), mimetype="text/markdown; charset=utf-8")
+    except FileNotFoundError:
+        return jsonify({"error": "未找到 CHANGELOG.md 文件"}), 404
+    except Exception as e:
+        return jsonify({"error": f"更新日志读取失败：{sanitize_text(e)}"}), 500
+
+
+@app.route("/model-info", methods=["GET"])
+def model_info_endpoint():
+    return jsonify(get_model_runtime_info(MODEL_NAME, OLLAMA_HEALTH_URL))
+
+
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
+
     # 多文件上传：前端使用同一个 key=file 多次 append，后端统一用 getlist 接收。
     files = [file for file in request.files.getlist("file") if file and file.filename]
     if not files:
         return jsonify({"error": "未收到文件"}), 400
 
-    def call_ollama(prompt, images_b64=None):
-        payload = {
+    def call_ollama(prompt: str, images_b64: list[str] | None = None):
+        payload: dict[str, object] = {
+
             "model": MODEL_NAME,
             "prompt": prompt,
             "stream": False,
             "options": build_ollama_options(),
             "keep_alive": build_keep_alive(),
         }
-
 
         if images_b64:
             payload["images"] = images_b64
@@ -182,14 +240,18 @@ def analyze():
                 except Exception:
                     err_msg = resp.text[:300]
                 return jsonify({"error": f"Ollama 返回错误（HTTP {resp.status_code}）：{sanitize_text(err_msg)}"}), 502
-            result = resp.json().get("response", "模型未返回内容")
-            return jsonify({"result": sanitize_text(result)})
+
+            response_json = resp.json()
+            result = sanitize_text(response_json.get("response", "模型未返回内容"))
+            total_tokens = extract_total_tokens(response_json, prompt, result)
+            return jsonify({"result": result, "token_used": total_tokens})
         except requests.exceptions.ConnectionError:
             return jsonify({"error": "无法连接到 Ollama 服务，请确认 Ollama 已启动（默认端口 11434）"}), 502
         except requests.exceptions.Timeout:
             return jsonify({"error": "模型响应超时，请稍后重试"}), 504
         except Exception as e:
             return jsonify({"error": sanitize_text(e)}), 500
+
 
     # 所有图片、PDF 页、Word 页统一汇总到一个图片列表；所有 Excel 文本统一汇总后插入 prompt。
     images_b64 = []
@@ -248,7 +310,7 @@ def analyze():
                     with open(word_path, "wb") as f_tmp:
                         f_tmp.write(word_bytes)
                     try:
-                        import pythoncom
+                        import pythoncom  # pyright: ignore[reportMissingModuleSource]
                         pythoncom.CoInitialize()
                     except ImportError:
                         pass

@@ -5,7 +5,7 @@ model_config = {
 }
 
 
-prompt_version = "v6"
+prompt_version = "v7"
 
 prompt_file_map = {
     "common": "common.md",
@@ -20,7 +20,7 @@ generation_kwargs = {
     "temperature": 0.0,
     "top_p": 1.0,
     "num_beams": 1,
-    "max_new_tokens": 1024,
+    "max_new_tokens": 4096,
     "repetition_penalty": 1.05,
     "use_cache": True,
 }

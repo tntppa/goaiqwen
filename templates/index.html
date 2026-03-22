@@ -92,7 +92,24 @@
     </style>
 </head>
 <body>
+<aside class="model-info">
+    <h2>模型信息</h2>
+    <div class="model-info-list">
+        <div class="model-info-item"><span>模型名称</span><strong id="mi-model-name">加载中...</strong></div>
+        <div class="model-info-item"><span>基础名称</span><strong id="mi-model-base">-</strong></div>
+        <div class="model-info-item"><span>版本</span><strong id="mi-model-version">-</strong></div>
+        <div class="model-info-item"><span>服务状态</span><strong id="mi-service-status">-</strong></div>
+        <div class="model-info-item"><span>Ollama 已注册</span><strong id="mi-registered">-</strong></div>
+        <div class="model-info-item"><span>模型精度</span><strong id="mi-precision">-</strong></div>
+        <div class="model-info-item"><span>OLLAMA_NUM_GPU</span><strong id="mi-num-gpu">-</strong></div>
+        <div class="model-info-item"><span>OLLAMA_FLASH_ATTENTION</span><strong id="mi-flash-attn">-</strong></div>
+    </div>
+
+    <div id="mi-note" class="model-info-note">-</div>
+</aside>
+
 <div class="container">
+
     <h1>报关单识别</h1>
     <p class="subtitle">上传文件，由 Ollama qwen2.5vl:7b 模型提取报关要素</p>
 
@@ -119,81 +136,9 @@
 
 <aside class="changelog">
     <h2>更新日志</h2>
-    <div class="log-item">
-        <div class="log-date">2026-03-21 v9</div>
-        <ul class="log-desc">
-            <li>新增 `config/generation_config.py` 统一维护模型生成参数</li>
-            <li>启用更快、更确定的推理配置，适合 OCR、结构化提取与表格解析</li>
-            <li>后端调用 Ollama 时自动加载并应用这些参数</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-19 v8</div>
-        <ul class="log-desc">
-            <li>支持多文件同时上传与混合格式识别</li>
-            <li>前端新增多文件网格预览与数量提示</li>
-            <li>后端统一汇总图片与 Excel 文本后单次调用模型</li>
-        </ul>
-    </div>
-
-    <div class="log-item">
-        <div class="log-date">2026-03-19 v7</div>
-        <ul class="log-desc">
-            <li>提示词从主文件拆分到 prompts 目录独立维护</li>
-            <li>后端改为从 Markdown 文件动态读取提示词</li>
-            <li>保留 v5 / v6 多版本提示词便于对比效果</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-19 v6</div>
-        <ul class="log-desc">
-            <li>前后端代码拆分为模板与静态资源目录</li>
-            <li>首页改为使用 templates/index.html 渲染</li>
-            <li>样式与脚本迁移到 static 目录独立维护</li>
-            <li>补充响应文本净化，避免 Unicode 代理字符报错</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-19 v5</div>
-        <ul class="log-desc">
-            <li>升级 Prompt 为多文档整合模式</li>
-            <li>支持跨文档上下文关联校核</li>
-            <li>Items 跨文档汇总合并输出</li>
-            <li>冲突字段自动写入 error_check_notes</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-17 v4</div>
-        <ul class="log-desc">
-            <li>支持 DOC/DOCX 转图片识别</li>
-            <li>各格式 Prompt 独立维护</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-17 v3</div>
-        <ul class="log-desc">
-            <li>分析结果显示用时（秒）</li>
-            <li>页面右侧新增更新日志</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-17 v2</div>
-        <ul class="log-desc">
-            <li>新增 XLS/XLSX 上传支持</li>
-            <li>pandas 读取 Excel 发给 AI</li>
-            <li>修复 pdftoppm 依赖缺失</li>
-        </ul>
-    </div>
-    <div class="log-item">
-        <div class="log-date">2026-03-17 初版</div>
-        <ul class="log-desc">
-            <li>支持 JPG/PNG 图片识别</li>
-            <li>支持 PDF 转图片识别</li>
-            <li>结构化 JSON 报关要素输出</li>
-            <li>Ollama qwen2.5vl:7b 集成</li>
-        </ul>
-    </div>
+    <div id="changelog-content">加载中...</div>
 </aside>
+
 
 <script>
     const fileInput = document.getElementById('file-input');
@@ -205,10 +150,101 @@
     const resultWrap = document.getElementById('result-wrap');
     const resultText = document.getElementById('result-text');
     const elapsedTime = document.getElementById('elapsed-time');
+    const miModelName = document.getElementById('mi-model-name');
+    const miModelBase = document.getElementById('mi-model-base');
+    const miModelVersion = document.getElementById('mi-model-version');
+    const miServiceStatus = document.getElementById('mi-service-status');
+    const miRegistered = document.getElementById('mi-registered');
+    const miPrecision = document.getElementById('mi-precision');
+    const miNumGpu = document.getElementById('mi-num-gpu');
+    const miFlashAttn = document.getElementById('mi-flash-attn');
+    const miNote = document.getElementById('mi-note');
+    const changelogContent = document.getElementById('changelog-content');
+
+
 
     let selectedFiles = [];
 
+    async function loadModelInfo() {
+        try {
+            const resp = await fetch('/model-info');
+            const data = await resp.json();
+            miModelName.textContent = data.model_name || '-';
+            miModelBase.textContent = data.model_base_name || '-';
+            miModelVersion.textContent = data.model_version || '-';
+            miServiceStatus.textContent = data.service_status || '-';
+            miRegistered.textContent = data.available_in_ollama ? '是' : '否';
+            miPrecision.textContent = data.precision_mode || '-';
+            miNumGpu.textContent = data.ollama_num_gpu ?? '-';
+            miFlashAttn.textContent = data.ollama_flash_attention ?? '-';
+            miNote.textContent = data.precision_check_note || data.error || '-';
+
+        } catch (err) {
+            miServiceStatus.textContent = 'offline';
+            miRegistered.textContent = '-';
+            miPrecision.textContent = '-';
+            miNumGpu.textContent = '-';
+            miFlashAttn.textContent = '-';
+            miNote.textContent = '模型信息获取失败，请检查服务状态。';
+
+        }
+    }
+
+    function renderChangelog(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const fragment = document.createDocumentFragment();
+        let currentItem = null;
+        let currentList = null;
+
+        lines.forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (!line || line.startsWith('# ')) {
+                return;
+            }
+
+            if (line.startsWith('## ')) {
+                currentItem = document.createElement('div');
+                currentItem.className = 'log-item';
+
+                const title = document.createElement('div');
+                title.className = 'log-date';
+                title.textContent = line.slice(3).trim();
+                currentItem.appendChild(title);
+
+                currentList = document.createElement('ul');
+                currentList.className = 'log-desc';
+                currentItem.appendChild(currentList);
+                fragment.appendChild(currentItem);
+                return;
+            }
+
+            if (line.startsWith('- ') && currentList) {
+                const item = document.createElement('li');
+                item.textContent = line.slice(2).trim();
+                currentList.appendChild(item);
+            }
+        });
+
+        changelogContent.innerHTML = '';
+        changelogContent.appendChild(fragment);
+    }
+
+    async function loadChangelog() {
+        try {
+            const resp = await fetch('/changelog');
+            if (!resp.ok) {
+                throw new Error('更新日志加载失败');
+            }
+            const markdown = await resp.text();
+            renderChangelog(markdown);
+        } catch (err) {
+            changelogContent.innerHTML = '<div class="log-item"><div class="log-date">更新日志</div><ul class="log-desc"><li>更新日志加载失败</li></ul></div>';
+        }
+    }
+
+
     function getExt(name) {
+
         return name.includes('.') ? name.split('.').pop().toLowerCase() : '';
     }
 
@@ -327,7 +363,12 @@
         fileInput.value = '';
     });
 
+    loadModelInfo();
+    loadChangelog();
+
     submitBtn.addEventListener('click', async function() {
+
+
         if (!selectedFiles.length) {
             return;
         }
@@ -348,9 +389,11 @@
             const data = await resp.json();
             const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
             resultWrap.style.display = 'block';
-            elapsedTime.textContent = '用时 ' + elapsed + ' 秒';
+            const tokenText = data.token_used != null ? ('  本次使用token ' + data.token_used) : '';
+            elapsedTime.textContent = '用时 ' + elapsed + ' 秒' + tokenText;
 
             if (data.error) {
+
                 resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';
             } else {
                 resultText.textContent = data.result;
