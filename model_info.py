@@ -14,7 +14,33 @@ def parse_model_identity(model_name: str) -> tuple[str, str]:
     return model_name, "unknown"
 
 
+def apply_ollama_details(result: dict[str, Any], details: dict[str, Any]) -> None:
+    result["quantization_level"] = details.get("quantization_level")
+    result["parameter_size"] = details.get("parameter_size")
+    result["format"] = details.get("format")
+
+    quant = result["quantization_level"]
+    if not isinstance(quant, str):
+        return
+
+    if quant.startswith(("Q4_", "IQ4_")):
+        result["precision_mode"] = "4-bit quantized (GGUF)"
+    elif quant.startswith("Q5_"):
+        result["precision_mode"] = "5-bit quantized (GGUF)"
+    elif quant.startswith("Q6_"):
+        result["precision_mode"] = "6-bit quantized (GGUF)"
+    elif quant.startswith("Q8_"):
+        result["precision_mode"] = "8-bit quantized (GGUF)"
+    elif quant in ("F16", "fp16"):
+        result["precision_mode"] = "FP16 (half precision)"
+    elif quant == "F32":
+        result["precision_mode"] = "FP32 (full precision)"
+    else:
+        result["precision_mode"] = f"Other GGUF quant: {quant}"
+
+
 def check_model_precision(model: Any) -> dict[str, Any]:
+
     """本地 Transformers 模型精度检查（仅在持有 model 对象时可用）。"""
     try:
         import torch
@@ -90,27 +116,9 @@ def get_model_precision_via_ollama(base_url: str, model_name: str, timeout: int 
         data = resp.json()
 
         details = data.get("details", {})
-        if details:
-            result["quantization_level"] = details.get("quantization_level")
-            result["parameter_size"] = details.get("parameter_size")
-            result["format"] = details.get("format")
+        if isinstance(details, dict) and details:
+            apply_ollama_details(result, details)
 
-            quant = result["quantization_level"]
-            if isinstance(quant, str):
-                if quant.startswith(("Q4_", "IQ4_")):
-                    result["precision_mode"] = "4-bit quantized (GGUF)"
-                elif quant.startswith("Q5_"):
-                    result["precision_mode"] = "5-bit quantized (GGUF)"
-                elif quant.startswith("Q6_"):
-                    result["precision_mode"] = "6-bit quantized (GGUF)"
-                elif quant.startswith("Q8_"):
-                    result["precision_mode"] = "8-bit quantized (GGUF)"
-                elif quant in ("F16", "fp16"):
-                    result["precision_mode"] = "FP16 (half precision)"
-                elif quant == "F32":
-                    result["precision_mode"] = "FP32 (full precision)"
-                else:
-                    result["precision_mode"] = f"Other GGUF quant: {quant}"
 
         if "model_info" in data and isinstance(data["model_info"], dict):
             result["model_info_sample"] = {
@@ -127,10 +135,11 @@ def get_model_precision_via_ollama(base_url: str, model_name: str, timeout: int 
 def get_model_runtime_info(
     model_name: str,
     health_url: str,
-    prompt_version: str,
-    generation_kwargs: dict[str, Any],
+    prompt_version: str = "unknown",
+    generation_kwargs: dict[str, Any] | None = None,
     timeout: int = 5,
 ) -> dict[str, Any]:
+
 
     base_name, version = parse_model_identity(model_name)
     base_url = health_url.rsplit("/api/", 1)[0] if "/api/" in health_url else health_url
@@ -147,8 +156,9 @@ def get_model_runtime_info(
         "ollama_num_gpu": os.environ.get("OLLAMA_NUM_GPU", "未设置"),
         "ollama_flash_attention": os.environ.get("OLLAMA_FLASH_ATTENTION", "未设置"),
         "prompt_version": prompt_version,
-        "generation_kwargs": dict(generation_kwargs),
+        "generation_kwargs": dict(generation_kwargs or {}),
     }
+
 
 
 
@@ -175,6 +185,15 @@ def get_model_runtime_info(
             info["model_digest"] = matched.get("digest")
             info["model_size"] = matched.get("size")
             info["modified_at"] = matched.get("modified_at")
+
+            matched_details = matched.get("details", {})
+            if isinstance(matched_details, dict) and (
+                precision_data.get("error") or not precision_data.get("quantization_level")
+            ):
+                apply_ollama_details(precision_data, matched_details)
+                info["precision_mode"] = precision_data.get("precision_mode", "unknown")
+                info["precision_check_note"] = "已从 /api/tags 回退获取模型精度信息"
+
 
     except Exception as e:
         info["service_status"] = "offline"

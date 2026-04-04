@@ -213,8 +213,8 @@ def model_info_endpoint():
         get_model_runtime_info(
             MODEL_NAME,
             OLLAMA_HEALTH_URL,
-            PROMPT_VERSION,
-            generation_kwargs,
+            prompt_version=PROMPT_VERSION,
+            generation_kwargs=generation_kwargs,
         )
     )
 

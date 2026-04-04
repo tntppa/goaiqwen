@@ -4,7 +4,6 @@ model_config = {
     "model_name": "qwen-vl-bigctx:latest",
 }
 
-
 prompt_version = "v8"
 
 prompt_file_map = {
@@ -12,10 +11,7 @@ prompt_file_map = {
     "excel": "excel.md",
 }
 
-
 generation_kwargs = {
-
-
     "do_sample": False,
     "temperature": 0.0,
     "top_p": 1.0,
@@ -24,4 +20,3 @@ generation_kwargs = {
     "repetition_penalty": 1.05,
     "use_cache": True,
 }
-

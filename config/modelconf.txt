@@ -1,3 +1,4 @@
 #环境变量
 OLLAMA_NUM_GPU=999999          # 强制尽量多层 offload 到 GPU 临时生效用set OLLAMA_NUM_GPU=999999
 OLLAMA_FLASH_ATTENTION=1       # 开启 Flash Attention（50 系列支持很好）
+gemma4:e4b  #测试效果远不如qwen2.5vl7b，后续待参数验证
