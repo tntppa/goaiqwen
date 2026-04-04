@@ -193,7 +193,8 @@ def handle_exception(e):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", model_name=MODEL_NAME)
+
 
 
 @app.route("/changelog", methods=["GET"])

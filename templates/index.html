@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>报关单识别 - Ollama qwen2.5vl:7b</title>
+    <title>报关单识别 - Ollama {{ model_name }}</title>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         #selection-summary {
@@ -111,7 +112,9 @@
 <div class="container">
 
     <h1>报关单识别</h1>
-    <p class="subtitle">上传文件，由 Ollama qwen2.5vl:7b 模型提取报关要素</p>
+    <p class="subtitle">上传文件，由 <strong>{{ model_name }}</strong> 模型提取报关要素</p>
+
+
 
     <div class="upload-area" id="upload-area">
         <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx" multiple>

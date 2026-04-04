@@ -14,35 +14,35 @@
 4. 若发现输入源之间存在断层、冲突或缺失，请在 `error_check_notes` 中说明。
 5. 禁止输出解释性文字，直接输出唯一一个 JSON 字符串。
 
-# Output JSON
-
+# Output JSON（严格按照下面格式，不要多一个字）
+# 示例输出（仅供参考，实际请用图片中的真实数据）：
 ```json
 {
   "processing_mode": "preprocessed_hybrid_input",
   "data_consistency_check": "检查所有输入源（图片+文本）的数据是否逻辑一致",
   "header": {
-    "sender_receiver": "境内收发货人",
-    "trade_mode": "监管方式",
-    "incoterms": "成交方式",
-    "total_packages": "全量汇总件数",
-    "total_gross_weight": "全量汇总毛重",
-    "total_net_weight": "全量汇总净重",
-    "currency": "币制"
+    "sender_receiver": "实际收发货人名称（例如：重庆光电仪器仪表有限公司）",
+    "trade_mode": "实际监管方式（例如：一般贸易）",
+    "incoterms": "实际成交方式（例如：FOB）",
+    "total_packages": "实际总件数（例如：24）",
+    "total_gross_weight": "实际毛重（例如：178.16 千克）",
+    "total_net_weight": "实际净重（例如：160.00 千克）",
+    "currency": "实际币制（例如：USD）"
   },
   "items": [
     {
-      "item_no": "全局唯一递增编号",
-      "data_source": "标注该条数据源自哪一个 Sheet 或文本段落",
-      "hscode_suggested": "建议HS编码",
-      "g_name": "中文品名 (Original English Name)",
-      "g_model": "规格型号",
-      "qty": "数量",
-      "unit": "单位",
-      "net_weight": "净重",``
-      "total_price": "总价"
+      "item_no": "1",
+      "data_source": "图片1",
+      "hscode_suggested": "9001909090",
+      "g_name": "透镜",
+      "g_model": "透镜",
+      "qty": "10.8 千克",
+      "unit": "千克",
+      "net_weight": "4600 个",
+      "total_price": "6028.00"
     }
   ],
-  "error_check_notes": "若发现数据源之间存在项号断层或数据冲突请注明，否则填 'None'。"
+  "error_check_notes": "若有数据冲突或缺失请注明，否则填 'None'"
 }
 ```
 
