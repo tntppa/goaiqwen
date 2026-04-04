@@ -104,7 +104,10 @@
         <div class="model-info-item"><span>模型精度</span><strong id="mi-precision">-</strong></div>
         <div class="model-info-item"><span>OLLAMA_NUM_GPU</span><strong id="mi-num-gpu">-</strong></div>
         <div class="model-info-item"><span>OLLAMA_FLASH_ATTENTION</span><strong id="mi-flash-attn">-</strong></div>
+        <div class="model-info-item"><span>提示词版本</span><strong id="mi-prompt-version">-</strong></div>
+        <div class="model-info-item"><span>generation_kwargs</span><pre id="mi-generation-kwargs" class="model-info-json">-</pre></div>
     </div>
+
 
     <div id="mi-note" class="model-info-note">-</div>
 </aside>
@@ -161,8 +164,11 @@
     const miPrecision = document.getElementById('mi-precision');
     const miNumGpu = document.getElementById('mi-num-gpu');
     const miFlashAttn = document.getElementById('mi-flash-attn');
+    const miPromptVersion = document.getElementById('mi-prompt-version');
+    const miGenerationKwargs = document.getElementById('mi-generation-kwargs');
     const miNote = document.getElementById('mi-note');
     const changelogContent = document.getElementById('changelog-content');
+
 
 
 
@@ -180,7 +186,12 @@
             miPrecision.textContent = data.precision_mode || '-';
             miNumGpu.textContent = data.ollama_num_gpu ?? '-';
             miFlashAttn.textContent = data.ollama_flash_attention ?? '-';
+            miPromptVersion.textContent = data.prompt_version || '-';
+            miGenerationKwargs.textContent = data.generation_kwargs
+                ? JSON.stringify(data.generation_kwargs, null, 2)
+                : '-';
             miNote.textContent = data.precision_check_note || data.error || '-';
+
 
         } catch (err) {
             miServiceStatus.textContent = 'offline';
@@ -188,7 +199,10 @@
             miPrecision.textContent = '-';
             miNumGpu.textContent = '-';
             miFlashAttn.textContent = '-';
+            miPromptVersion.textContent = '-';
+            miGenerationKwargs.textContent = '-';
             miNote.textContent = '模型信息获取失败，请检查服务状态。';
+
 
         }
     }

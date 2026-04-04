@@ -5,7 +5,7 @@ model_config = {
 }
 
 
-prompt_version = "v7"
+prompt_version = "v8"
 
 prompt_file_map = {
     "common": "common.md",

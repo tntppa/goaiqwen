@@ -209,7 +209,15 @@ def changelog_endpoint():
 
 @app.route("/model-info", methods=["GET"])
 def model_info_endpoint():
-    return jsonify(get_model_runtime_info(MODEL_NAME, OLLAMA_HEALTH_URL))
+    return jsonify(
+        get_model_runtime_info(
+            MODEL_NAME,
+            OLLAMA_HEALTH_URL,
+            PROMPT_VERSION,
+            generation_kwargs,
+        )
+    )
+
 
 
 

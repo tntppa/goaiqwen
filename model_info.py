@@ -124,7 +124,14 @@ def get_model_precision_via_ollama(base_url: str, model_name: str, timeout: int 
     return result
 
 
-def get_model_runtime_info(model_name: str, health_url: str, timeout: int = 5) -> dict[str, Any]:
+def get_model_runtime_info(
+    model_name: str,
+    health_url: str,
+    prompt_version: str,
+    generation_kwargs: dict[str, Any],
+    timeout: int = 5,
+) -> dict[str, Any]:
+
     base_name, version = parse_model_identity(model_name)
     base_url = health_url.rsplit("/api/", 1)[0] if "/api/" in health_url else health_url
 
@@ -139,7 +146,10 @@ def get_model_runtime_info(model_name: str, health_url: str, timeout: int = 5) -
         "precision_check_note": "等待精度信息",
         "ollama_num_gpu": os.environ.get("OLLAMA_NUM_GPU", "未设置"),
         "ollama_flash_attention": os.environ.get("OLLAMA_FLASH_ATTENTION", "未设置"),
+        "prompt_version": prompt_version,
+        "generation_kwargs": dict(generation_kwargs),
     }
+
 
 
     try:
