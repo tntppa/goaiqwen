@@ -1,0 +1,74 @@
+# 表体字段说明
+
+| 字段描述                  | 字段名              | 备注            |
+|-----------------------|------------------|---------------|
+| coid                  | 进口清单明细ID         |               |
+| oid                   | 报关单ID            |               |
+| cid                   | 企业ID             |               |
+| gNo                   | 序号               |               |
+| codeTs                | 商品编号             |               |
+| contrItem             | 备案序号或项号          |               |
+| gName                 | 商品名称             |               |
+| gModel                | 规格               |               |
+| gQty                  | 成交数量             |               |
+| gUnit                 | 成交单位             |               |
+| qty1                  | 第一法定数量           |               |
+| unit1                 | 第一法定单位           |               |
+| qty2                  | 第二法定数量           |               |
+| unit2                 | 第二法定单位           |               |
+| netWt                 | 净重KG             |               |
+| declPrice             | 单价               |               |
+| declTotal             | 总价               |               |
+| tradeCurr             | 币制               |               |
+| originCountry         | 原产国或地区           |               |
+| destinationCountry    | 最终目的国            |               |
+| dutyMode              | 征免方式             |               |
+| cusSupvDmd            | 监管要求             |               |
+| useTo                 | 用途               |               |
+| factor                | 申报计量单位与法定单位比例因子  |               |
+| exgVersion            | 版本号              |               |
+| exgNo                 | 货号               |               |
+| wrapType              | 包装种类代码           |               |
+| workUsd               | 工缴费              |               |
+| classMark             | 归类标志             |               |
+| gModelartNo           | 用于前端功能的字段规格拼接料号  |               |
+| ciqCode               | 货物检验检疫代码         |               |
+| ciqName               | 货物检验检疫名称         |               |
+| districtCode          | 境内目的地/境内货源地      |               |
+| origPlaceCode         | 原产地区             |               |
+| destCode              | 目的地              |               |
+| iContrItem            | 一单两报项号           |               |
+| iGName                | 一单两报品名           |               |
+| oldCoid               | 一单两报明细原ID        |               |
+| purpose               | 用途代码             |               |
+| stuff                 | 成份/原料            |               |
+| prodValidDt           | 产品有效期            |               |
+| prodQgp               | 产品保质期            |               |
+| engManEntCnm          | 境外生产企业名称         |               |
+| goodsSpec             | 检验检疫货物规格         |               |
+| goodsModel(使用`model`) | 货物型号             |               |
+| model                 | 货物型号             |               |
+| goodsBrand(使用`brand`) | 货物品牌             | 若无指定，用这个字段表品牌 |
+| brand                 | 货物品牌             | 同上，用这个字段      |
+| produceDate           | 生产日期             |               |
+| prodBatchNo           | 生产批号             |               |
+| goodsAttr             | 货物属性名称           |               |
+| goodsAttrCode         | 货物属性代码           |               |
+| noDangFlag            | 非危险化学品           |               |
+| unCode                | UN编码             |               |
+| dangName              | 危险货物名称           |               |
+| dangPackType          | 危包类别             |               |
+| dangPackSpec          | 危包规格             |               |
+| orgModel              | 检验检疫货物规格         |               |
+| errorStatus           | 错误标识             |               |
+| customsbrokerNo       | 报关行编号            |               |
+| clientNo              | 报关行机器编号          |               |
+| itemNoGB              | 归并料号             |               |
+| mdeclTotal            | 4位总价             |               |
+| grossWet              | 毛重KG             |               |
+| certOriCode           | 协定享惠-原产地证明编号     |               |
+| preTradeAgreeCode     | 协定享惠-优惠贸易协定代码    |               |
+| rcepOrigPlaceDocCode  | 协定享惠-优惠贸易协定项下原产地 |               |
+| certOriModItemNum     | 协定享惠-原产地证明商品项号   |               |
+| oriCertType           | 协定享惠-原产地证明类型代码   |               |
+| itemNo                | 料号               |               |

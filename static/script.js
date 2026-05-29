@@ -69,7 +69,19 @@ fileInput.addEventListener('change', function() {
     fileInput.value = '';
 });
 
+function buildElapsedText(elapsed, tokenUsed) {
+    const elapsedNumber = Number(elapsed);
+    const tokenNumber = Number(tokenUsed);
+    if (!Number.isFinite(tokenNumber) || !Number.isFinite(elapsedNumber) || elapsedNumber <= 0) {
+        return '用时 ' + elapsed + ' 秒';
+    }
+
+    const tokensPerSecond = (tokenNumber / elapsedNumber).toFixed(2);
+    return '用时 ' + elapsed + ' 秒  本次使用token ' + tokenNumber + '  ' + tokensPerSecond + ' token/每秒';
+}
+
 submitBtn.addEventListener('click', async function() {
+
     if (!selectedFile) {
         return;
     }
@@ -89,19 +101,11 @@ submitBtn.addEventListener('click', async function() {
         const data = await resp.json();
         const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
         resultWrap.style.display = 'block';
-        document.getElementById('elapsed-time').textContent = '用时 ' + elapsed + ' 秒';
+        document.getElementById('elapsed-time').textContent = data.token_used != null
+            ? buildElapsedText(elapsed, data.token_used)
+            : '用时 ' + elapsed + ' 秒';
         if (data.error) {
+
             resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';
         } else {
-            resultText.textContent = data.result;
-        }
-    } catch (err) {
-        const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-        resultWrap.style.display = 'block';
-        document.getElementById('elapsed-time').textContent = '用时 ' + elapsed + ' 秒';
-        resultText.innerHTML = '<span class="error">请求失败，请检查服务是否正常运行。</span>';
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '上传并分析';
-    }
-});
+            resultText.textContent

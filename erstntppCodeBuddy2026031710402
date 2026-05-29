@@ -1,0 +1,91 @@
+[1mdiff --git a/static/script.js b/static/script.js[m
+[1mindex 59fd9c7..3cbb61e 100644[m
+[1m--- a/static/script.js[m
+[1m+++ b/static/script.js[m
+[36m@@ -69,7 +69,19 @@[m [mfileInput.addEventListener('change', function() {[m
+     fileInput.value = '';[m
+ });[m
+ [m
+[32m+[m[32mfunction buildElapsedText(elapsed, tokenUsed) {[m
+[32m+[m[32m    const elapsedNumber = Number(elapsed);[m
+[32m+[m[32m    const tokenNumber = Number(tokenUsed);[m
+[32m+[m[32m    if (!Number.isFinite(tokenNumber) || !Number.isFinite(elapsedNumber) || elapsedNumber <= 0) {[m
+[32m+[m[32m        return '用时 ' + elapsed + ' 秒';[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    const tokensPerSecond = (tokenNumber / elapsedNumber).toFixed(2);[m
+[32m+[m[32m    return '用时 ' + elapsed + ' 秒  本次使用token ' + tokenNumber + '  ' + tokensPerSecond + ' token/每秒';[m
+[32m+[m[32m}[m
+[32m+[m
+ submitBtn.addEventListener('click', async function() {[m
+[32m+[m
+     if (!selectedFile) {[m
+         return;[m
+     }[m
+[36m@@ -89,19 +101,11 @@[m [msubmitBtn.addEventListener('click', async function() {[m
+         const data = await resp.json();[m
+         const elapsed = ((performance.now() - t0) / 1000).toFixed(2);[m
+         resultWrap.style.display = 'block';[m
+[31m-        document.getElementById('elapsed-time').textContent = '用时 ' + elapsed + ' 秒';[m
+[32m+[m[32m        document.getElementById('elapsed-time').textContent = data.token_used != null[m
+[32m+[m[32m            ? buildElapsedText(elapsed, data.token_used)[m
+[32m+[m[32m            : '用时 ' + elapsed + ' 秒';[m
+         if (data.error) {[m
+[32m+[m
+             resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';[m
+         } else {[m
+[31m-            resultText.textContent = data.result;[m
+[31m-        }[m
+[31m-    } catch (err) {[m
+[31m-        const elapsed = ((performance.now() - t0) / 1000).toFixed(2);[m
+[31m-        resultWrap.style.display = 'block';[m
+[31m-        document.getElementById('elapsed-time').textContent = '用时 ' + elapsed + ' 秒';[m
+[31m-        resultText.innerHTML = '<span class="error">请求失败，请检查服务是否正常运行。</span>';[m
+[31m-    } finally {[m
+[31m-        submitBtn.disabled = false;[m
+[31m-        submitBtn.innerHTML = '上传并分析';[m
+[31m-    }[m
+[31m-});[m
+[32m+[m[32m            resultText.textContent[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/index.html b/templates/index.html[m
+[1mindex dda540c..d82e47b 100644[m
+[1m--- a/templates/index.html[m
+[1m+++ b/templates/index.html[m
+[36m@@ -288,8 +288,20 @@[m
+         elapsedTime.textContent = '';[m
+     }[m
+ [m
+[32m+[m[32m    function buildElapsedText(elapsed, tokenUsed) {[m
+[32m+[m[32m        const elapsedNumber = Number(elapsed);[m
+[32m+[m[32m        const tokenNumber = Number(tokenUsed);[m
+[32m+[m[32m        if (!Number.isFinite(tokenNumber) || !Number.isFinite(elapsedNumber) || elapsedNumber <= 0) {[m
+[32m+[m[32m            return '用时 ' + elapsed + ' 秒';[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        const tokensPerSecond = (tokenNumber / elapsedNumber).toFixed(2);[m
+[32m+[m[32m        return '用时 ' + elapsed + ' 秒  本次使用token ' + tokenNumber + '  ' + tokensPerSecond + ' token/每秒';[m
+[32m+[m[32m    }[m
+[32m+[m
+     function createFileCard(file) {[m
+         const card = document.createElement('div');[m
+[32m+[m
+         card.className = 'file-card';[m
+ [m
+         const thumb = document.createElement('div');[m
+[36m@@ -406,11 +418,13 @@[m
+             const data = await resp.json();[m
+             const elapsed = ((performance.now() - t0) / 1000).toFixed(2);[m
+             resultWrap.style.display = 'block';[m
+[31m-            const tokenText = data.token_used != null ? ('  本次使用token ' + data.token_used) : '';[m
+[31m-            elapsedTime.textContent = '用时 ' + elapsed + ' 秒' + tokenText;[m
+[32m+[m[32m            elapsedTime.textContent = data.token_used != null[m
+[32m+[m[32m                ? buildElapsedText(elapsed, data.token_used)[m
+[32m+[m[32m                : '用时 ' + elapsed + ' 秒';[m
+ [m
+             if (data.error) {[m
+ [m
+[32m+[m
+                 resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';[m
+             } else {[m
+                 resultText.textContent = data.result;[m

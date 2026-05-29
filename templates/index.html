@@ -288,8 +288,20 @@
         elapsedTime.textContent = '';
     }
 
+    function buildElapsedText(elapsed, tokenUsed) {
+        const elapsedNumber = Number(elapsed);
+        const tokenNumber = Number(tokenUsed);
+        if (!Number.isFinite(tokenNumber) || !Number.isFinite(elapsedNumber) || elapsedNumber <= 0) {
+            return '用时 ' + elapsed + ' 秒';
+        }
+
+        const tokensPerSecond = (tokenNumber / elapsedNumber).toFixed(2);
+        return '用时 ' + elapsed + ' 秒  本次使用token ' + tokenNumber + '  ' + tokensPerSecond + ' token/每秒';
+    }
+
     function createFileCard(file) {
         const card = document.createElement('div');
+
         card.className = 'file-card';
 
         const thumb = document.createElement('div');
@@ -406,10 +418,12 @@
             const data = await resp.json();
             const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
             resultWrap.style.display = 'block';
-            const tokenText = data.token_used != null ? ('  本次使用token ' + data.token_used) : '';
-            elapsedTime.textContent = '用时 ' + elapsed + ' 秒' + tokenText;
+            elapsedTime.textContent = data.token_used != null
+                ? buildElapsedText(elapsed, data.token_used)
+                : '用时 ' + elapsed + ' 秒';
 
             if (data.error) {
+
 
                 resultText.innerHTML = '<span class="error">错误：' + data.error + '</span>';
             } else {
