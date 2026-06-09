@@ -9,6 +9,7 @@ venv/
 .tmp/
 .tmp*/
 .temp/
+temp/
 *.tmp
 *.temp
 

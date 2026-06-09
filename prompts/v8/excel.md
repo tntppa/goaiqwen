@@ -10,7 +10,7 @@
 
 1. 必须处理所有 Sheet、所有段落和所有区域，严禁只读取首段或末段。
 2. 将分散在不同 Sheet 或区域中的商品项完整提取并汇总，确保 `items` 数组长度等于所有区域商品项总和。
-3. 若不同 Sheet 之间存在字段互补，应自动完成 `header` 与 `items` 的关联。
+3. 若不同 Sheet 之间存在字段互补，应自动完成 `head` 与 `items` 的关联。
 4. 若发现输入源之间存在断层、冲突或缺失，请在 `error_check_notes` 中说明。
 5. 禁止输出解释性文字，直接输出唯一一个 JSON 字符串。
 
@@ -20,7 +20,7 @@
 {
   "processing_mode": "preprocessed_hybrid_input",
   "data_consistency_check": "检查所有输入源（图片+文本）的数据是否逻辑一致",
-  "header": {
+  "head": {
       "domesticConsigneeEname": "",
       "overseasCode": "",
       "overseasEname": "",
@@ -62,8 +62,7 @@
       "districtCode": "境内货源地（例如：东台 32199）",
       "dutyMode": "征免性质（例如：一般征税）"
     }
-  ],
-  "error_check_notes": "若有数据冲突或缺失请注明，否则填 'None'"
+  ]
 }
 ```
 
