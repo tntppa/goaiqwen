@@ -1,7 +1,7 @@
 model_config = {
     "ollama_url": "http://localhost:11434/api/generate",
     "ollama_health_url": "http://localhost:11434/api/tags",
-    "model_name": "qwen-vl-bigctx:latest",
+    "model_name": "qwen2.5vl:7b",
 }
 
 prompt_version = "v8"
