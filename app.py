@@ -9,7 +9,9 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from pdf2image import convert_from_bytes
 
+from api import create_api_blueprint, start_task_polling
 from config.generation_config import (
+
     generation_kwargs,
     model_config,
     prompt_file_map,
@@ -28,9 +30,11 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, "templates"),
     static_folder=os.path.join(BASE_DIR, "static"),
 )
+app.register_blueprint(create_api_blueprint())
 
 
 OLLAMA_URL = model_config["ollama_url"]
+
 OLLAMA_HEALTH_URL = model_config["ollama_health_url"]
 MODEL_NAME = model_config["model_name"]
 
@@ -379,4 +383,5 @@ def analyze():
 
 if __name__ == "__main__":
     check_ollama_connection()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    start_task_polling(interval_seconds=2)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

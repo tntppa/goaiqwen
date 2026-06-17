@@ -4,7 +4,17 @@ model_config = {
     "model_name": "qwen2.5vl:7b",
 }
 
+api_config = {
+    "task_next_url": "http://ai.guanwu.imohe.com/parse/ai/task/next",
+    "task_file_url_template": "http://ai.guanwu.imohe.com/parse/ai/task/{task_id}/files/{file_ref}",
+    "task_result_url_template": "http://ai.guanwu.imohe.com/parse/ai/task/{task_id}/result",
+    "temp_dir": "temp",
+}
+
+
+
 prompt_version = "v8"
+
 
 prompt_file_map = {
     "common": "common.md",

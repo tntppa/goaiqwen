@@ -6,7 +6,7 @@
 
 # 核心约束 (CRITICAL)
 1. **禁止复读**：严禁输出提示词示例中的任何公司名、地名、数值。
-2. **纯净数值**：header 和 items 的 value 必须是图片中的真实内容。禁止带入“例如”、“名称”等解释文字。
+2. **纯净数值**：head 和 items 的 value 必须是图片中的真实内容。禁止带入“例如”、“名称”等解释文字。
 3. **结构要求**：输出必须是合法 JSON，不含任何 Markdown 代码块之外的解释。
 4. **单位保留**：件数、重量、价格等需保留图片中的原始单位。
 
@@ -14,7 +14,7 @@
 ```json
 {
   "processing_mode": "preprocessed_hybrid_input",
-  "header": {
+  "head": {
       "domesticConsigneeEname": "",
       "overseasCode": "",
       "overseasEname": "",
@@ -56,6 +56,5 @@
       "districtCode": "境内货源地（例如：东台 32199）",
       "dutyMode": "征免性质（例如：一般征税）"
     }
-  ],
-  "error_check_notes": ""
+  ]
 }
