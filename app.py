@@ -71,8 +71,8 @@ def build_ollama_options() -> dict[str, float | int]:
         "temperature": generation_kwargs.get("temperature", 0.0),
         "top_p": generation_kwargs.get("top_p", 1.0),
         "repeat_penalty": generation_kwargs.get("repetition_penalty", 1.0),
-        "num_predict": generation_kwargs.get("max_new_tokens", 8192),
-        "num_ctx": generation_kwargs.get("num_ctx", 8192),
+        "num_predict": generation_kwargs.get("max_new_tokens", 32768),
+        "num_ctx": generation_kwargs.get("num_ctx", 32768),
     }
     if generation_kwargs.get("do_sample") is False:
         options["top_k"] = 1

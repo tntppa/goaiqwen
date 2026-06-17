@@ -26,10 +26,10 @@ generation_kwargs = {
     "temperature": 0.0,
     "top_p": 1.0,
     "num_beams": 1,
-    "max_new_tokens": 8192,
+    "max_new_tokens": 32768,
     "repetition_penalty": 1.05,
     "use_cache": True,
-    "num_ctx": 8192,
+    "num_ctx": 32768,
 }
 
 # 输入剪裁与页数限制，避免超过模型上下文
