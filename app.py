@@ -13,10 +13,12 @@ from api import create_api_blueprint, start_task_polling
 from config.generation_config import (
 
     generation_kwargs,
+    input_limits,
     model_config,
     prompt_file_map,
     prompt_version,
 )
+
 from model_info import get_model_runtime_info
 
 
@@ -69,11 +71,13 @@ def build_ollama_options() -> dict[str, float | int]:
         "temperature": generation_kwargs.get("temperature", 0.0),
         "top_p": generation_kwargs.get("top_p", 1.0),
         "repeat_penalty": generation_kwargs.get("repetition_penalty", 1.0),
-        "num_predict": generation_kwargs.get("max_new_tokens", 4096),
+        "num_predict": generation_kwargs.get("max_new_tokens", 8192),
+        "num_ctx": generation_kwargs.get("num_ctx", 8192),
     }
     if generation_kwargs.get("do_sample") is False:
         options["top_k"] = 1
     return options
+
 
 
 
@@ -120,11 +124,16 @@ def get_word_prompt() -> str:
 
 
 def build_excel_prompt(excel_text: str) -> str:
-    prompt = read_prompt_template("excel")
+    return build_prompt_with_excel_text(read_prompt_template("excel"), excel_text)
+
+
+
+def build_prompt_with_excel_text(prompt: str, excel_text: str) -> str:
     placeholder = "{{EXCEL_TEXT}}"
     if placeholder in prompt:
         return prompt.replace(placeholder, excel_text)
     return prompt + "\n\n## Excel 表格数据\n\n" + excel_text
+
 
 
 
@@ -211,7 +220,16 @@ def changelog_endpoint():
         return jsonify({"error": f"更新日志读取失败：{sanitize_text(e)}"}), 500
 
 
+@app.route("/prompt", methods=["GET"])
+def prompt_endpoint():
+    try:
+        return jsonify({"version": PROMPT_VERSION, "type": "common", "prompt": get_image_prompt()})
+    except Exception as e:
+        return jsonify({"error": f"提示词读取失败：{sanitize_text(e)}"}), 500
+
+
 @app.route("/model-info", methods=["GET"])
+
 def model_info_endpoint():
     return jsonify(
         get_model_runtime_info(
@@ -233,7 +251,12 @@ def analyze():
     if not files:
         return jsonify({"error": "未收到文件"}), 400
 
+    page_prompt = (request.form.get("prompt") or "").strip()
+    if not page_prompt:
+        return jsonify({"error": "页面提示词为空，请先加载或填写提示词"}), 400
+
     def call_ollama(prompt: str, images_b64: list[str] | None = None):
+
         payload: dict[str, object] = {
 
             "model": MODEL_NAME,
@@ -270,7 +293,14 @@ def analyze():
     images_b64 = []
     excel_parts = []
 
+    max_images = int(input_limits.get("max_images", 8))
+    max_pdf_pages = int(input_limits.get("max_pdf_pages", 5))
+    excel_max_rows = int(input_limits.get("excel_max_rows", 50))
+    excel_max_cols = int(input_limits.get("excel_max_cols", 12))
+    max_prompt_chars = int(input_limits.get("max_prompt_chars", 20000))
+
     for file in files:
+
         fname = file.filename or ""
         filename_ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
 
@@ -291,10 +321,12 @@ def analyze():
         # 1) 原生图片：直接转 base64，保持现有逻辑。
         if is_image:
             try:
-                images_b64.append(base64.b64encode(file.read()).decode("utf-8"))
+                if len(images_b64) < max_images:
+                    images_b64.append(base64.b64encode(file.read()).decode("utf-8"))
             except Exception as e:
                 return jsonify({"error": f"图片读取失败（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
             continue
+
 
         # 2) PDF：逐页转 PNG 后追加到同一个 images_b64 列表。
         if is_pdf:
@@ -302,13 +334,16 @@ def analyze():
                 pages = convert_from_bytes(file.read(), dpi=200, fmt="png")
             except Exception as e:
                 return jsonify({"error": f"PDF 转换失败，请确认已安装 poppler（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
-            for page in pages:
+            for i, page in enumerate(pages):
+                if i >= max_pdf_pages or len(images_b64) >= max_images:
+                    break
                 buf = io.BytesIO()
                 page.save(buf, format="PNG")
                 images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
             continue
 
         # 3) Word：先转 PDF，再逐页转图片，保持现有 docx2pdf + pdf2image 逻辑。
+
         if is_word:
             try:
                 from docx2pdf import convert as docx2pdf_convert
@@ -339,13 +374,16 @@ def analyze():
                         pages = convert_from_bytes(f_pdf.read(), dpi=200, fmt="png")
             except Exception as e:
                 return jsonify({"error": f"Word 转换失败（需本机已安装 Microsoft Word，文件：{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
-            for page in pages:
+            for i, page in enumerate(pages):
+                if i >= max_pdf_pages or len(images_b64) >= max_images:
+                    break
                 buf = io.BytesIO()
                 page.save(buf, format="PNG")
                 images_b64.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
             continue
 
         # 4) Excel：读取所有 sheet，转成文本后按文件名收集，最后统一拼接到 prompt。
+
         if is_excel:
             try:
                 file_bytes = file.read()
@@ -363,8 +401,10 @@ def analyze():
                 parts = []
                 for sheet_name, df in xls.items():
                     df = df.fillna("").astype(str)
+                    df = df.iloc[:excel_max_rows, :excel_max_cols]
                     parts.append(f"[Sheet: {sheet_name}]\n{df.to_string(index=False)}")
                 excel_parts.append((fname, "\n\n".join(parts)))
+
             except Exception as e:
                 return jsonify({"error": f"Excel 数据转换失败（{sanitize_text(fname)}）：{sanitize_text(e)}"}), 500
 
@@ -375,10 +415,14 @@ def analyze():
         f"[Excel 文件: {fname}]\n{part}"
         for fname, part in excel_parts
     )
+    if len(excel_text) > max_prompt_chars:
+        excel_text = excel_text[:max_prompt_chars] + "\n\n[后续内容已截断，以防超过模型上下文限制]"
 
-    # 统一只调用一次模型：有 Excel 时使用 excel prompt，否则使用 common prompt。
-    prompt = build_excel_prompt(excel_text) if excel_parts else get_image_prompt()
+    # 统一只调用一次模型：始终使用页面中的提示词；有 Excel 时把表格文本注入页面提示词。
+    prompt = build_prompt_with_excel_text(page_prompt, excel_text) if excel_parts else page_prompt
     return call_ollama(prompt, images_b64 if images_b64 else None)
+
+
 
 
 if __name__ == "__main__":

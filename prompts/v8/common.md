@@ -32,13 +32,7 @@
       "tradeMode": "",
       "cutMode": "",
       "wrapType": "",
-      "entyPortCode": "",
-      "districtCode": "",
-      "originCountry": "",
-      "agentName": "",
-      "agentCode": "",
-      "producerName": "",
-      "preEntryId": ""
+      "entyPortCode": ""
   },
   "items": [
     {

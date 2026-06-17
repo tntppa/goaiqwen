@@ -117,9 +117,20 @@
     <h1>报关单识别</h1>
     <p class="subtitle">上传文件，由 <strong>{{ model_name }}</strong> 模型提取报关要素</p>
 
-
+    <section class="prompt-panel">
+        <div class="prompt-header">
+            <div>
+                <h2>当前请求提示词</h2>
+                <p id="prompt-status">正在加载最新版提示词...</p>
+            </div>
+            <button type="button" class="prompt-reload-btn" id="reload-prompt-btn">重新加载最新版</button>
+        </div>
+        <textarea id="prompt-textarea" spellcheck="false" placeholder="请先加载或填写提示词"></textarea>
+        <p class="prompt-hint">每次点击“上传并分析所有文件”时，都会使用此处显示的提示词。</p>
+    </section>
 
     <div class="upload-area" id="upload-area">
+
         <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx" multiple>
         <div class="upload-icon">📄</div>
         <p>点击或拖拽多个文件到此处</p>
@@ -153,7 +164,11 @@
     const previewWrap = document.getElementById('preview-wrap');
     const previewGrid = document.getElementById('preview-grid');
     const submitBtn = document.getElementById('submit-btn');
+    const promptTextarea = document.getElementById('prompt-textarea');
+    const promptStatus = document.getElementById('prompt-status');
+    const reloadPromptBtn = document.getElementById('reload-prompt-btn');
     const resultWrap = document.getElementById('result-wrap');
+
     const resultText = document.getElementById('result-text');
     const elapsedTime = document.getElementById('elapsed-time');
     const miModelName = document.getElementById('mi-model-name');
@@ -174,7 +189,23 @@
 
     let selectedFiles = [];
 
+    async function loadPrompt() {
+        promptStatus.textContent = '正在加载最新版提示词...';
+        try {
+            const resp = await fetch('/prompt');
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                throw new Error(data.error || '提示词加载失败');
+            }
+            promptTextarea.value = data.prompt || '';
+            promptStatus.textContent = '已加载 ' + (data.version || '-') + ' / ' + (data.type || 'common');
+        } catch (err) {
+            promptStatus.textContent = '提示词加载失败，请检查后端配置。';
+        }
+    }
+
     async function loadModelInfo() {
+
         try {
             const resp = await fetch('/model-info');
             const data = await resp.json();
@@ -394,23 +425,36 @@
 
     loadModelInfo();
     loadChangelog();
+    loadPrompt();
+    reloadPromptBtn.addEventListener('click', loadPrompt);
 
     submitBtn.addEventListener('click', async function() {
+
 
 
         if (!selectedFiles.length) {
             return;
         }
+        const requestPrompt = promptTextarea.value.trim();
+        if (!requestPrompt) {
+            resultWrap.style.display = 'block';
+            elapsedTime.textContent = '';
+            resultText.innerHTML = '<span class="error">错误：提示词为空，请先加载或填写提示词。</span>';
+            return;
+        }
 
         submitBtn.disabled = true;
+
         submitBtn.innerHTML = '<span class="loading"></span>处理中，请稍候...';
         resetResult();
 
         const formData = new FormData();
+        formData.append('prompt', requestPrompt);
         // 多文件统一使用同一个 key=file 提交，后端通过 getlist("file") 接收。
         selectedFiles.forEach((file) => {
             formData.append('file', file);
         });
+
 
         const t0 = performance.now();
         try {

@@ -1,7 +1,7 @@
 model_config = {
     "ollama_url": "http://localhost:11434/api/generate",
     "ollama_health_url": "http://localhost:11434/api/tags",
-    "model_name": "qwen-vl-bigctx:latest",
+    "model_name": "qwen2.5vl:7b",
 }
 
 api_config = {
@@ -26,7 +26,17 @@ generation_kwargs = {
     "temperature": 0.0,
     "top_p": 1.0,
     "num_beams": 1,
-    "max_new_tokens": 4096,
+    "max_new_tokens": 8192,
     "repetition_penalty": 1.05,
     "use_cache": True,
+    "num_ctx": 8192,
+}
+
+# 输入剪裁与页数限制，避免超过模型上下文
+input_limits = {
+    "max_prompt_chars": 20000,
+    "max_pdf_pages": 5,
+    "max_images": 8,
+    "excel_max_rows": 50,
+    "excel_max_cols": 12,
 }

@@ -17,7 +17,7 @@ from flask import Blueprint, jsonify, request
 from pdf2image import convert_from_bytes
 
 
-from config.generation_config import api_config, generation_kwargs, model_config, prompt_file_map, prompt_version
+from config.generation_config import api_config, generation_kwargs, model_config, prompt_file_map, prompt_version, input_limits
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -26,7 +26,10 @@ PROMPTS_DIR = ROOT_DIR / "prompts"
 OLLAMA_URL = model_config["ollama_url"]
 MODEL_NAME = model_config["model_name"]
 POLL_INTERVAL_SECONDS = 2
+TASK_HTTP_SESSION = requests.Session()
+TASK_HTTP_SESSION.trust_env = False
 _polling_thread: threading.Thread | None = None
+
 _polling_stop_event = threading.Event()
 _polling_lock = threading.Lock()
 DOWNLOAD_URL_KEYS = {
@@ -181,7 +184,8 @@ def _download_to_temp(download_url: str, task_id: str, file_ref: str, depth: int
 
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    response = requests.get(download_url, stream=True, timeout=120)
+    response = TASK_HTTP_SESSION.get(download_url, stream=True, timeout=120)
+
     response.raise_for_status()
 
     content_type = response.headers.get("Content-Type", "").lower()
@@ -236,6 +240,7 @@ def _build_ollama_options() -> dict[str, float | int]:
         "top_p": generation_kwargs.get("top_p", 1.0),
         "repeat_penalty": generation_kwargs.get("repetition_penalty", 1.0),
         "num_predict": generation_kwargs.get("max_new_tokens", 4096),
+        "num_ctx": generation_kwargs.get("num_ctx", 4096),
     }
     if generation_kwargs.get("do_sample") is False:
         options["top_k"] = 1
@@ -268,6 +273,10 @@ def _build_excel_prompt(excel_text: str) -> str:
 
 
 def _file_to_ollama_inputs(file_path: Path, images_b64: list[str], excel_parts: list[tuple[str, str]]) -> None:
+    max_images = int(input_limits.get("max_images", 8))
+    max_pdf_pages = int(input_limits.get("max_pdf_pages", 5))
+    excel_max_rows = int(input_limits.get("excel_max_rows", 50))
+    excel_max_cols = int(input_limits.get("excel_max_cols", 12))
     suffix = file_path.suffix.lower().lstrip(".")
     filename = file_path.name
 
@@ -296,6 +305,7 @@ def _file_to_ollama_inputs(file_path: Path, images_b64: list[str], excel_parts: 
         parts = []
         for sheet_name, df in xls.items():
             df = df.fillna("").astype(str)
+            df = df.iloc[:excel_max_rows, :excel_max_cols]
             parts.append(f"[Sheet: {sheet_name}]\n{df.to_string(index=False)}")
         excel_parts.append((filename, "\n\n".join(parts)))
         return
@@ -394,7 +404,11 @@ def _call_ollama_for_files(file_paths: list[Path]) -> dict[str, Any]:
         raise ValueError("未得到可分析的图片或表格内容")
 
     excel_text = "\n\n".join(f"[Excel 文件: {fname}]\n{part}" for fname, part in excel_parts)
+    max_prompt_chars = int(input_limits.get("max_prompt_chars", 20000))
+    if len(excel_text) > max_prompt_chars:
+        excel_text = excel_text[:max_prompt_chars] + "\n\n[后续内容已截断，以防超过模型上下文限制]"
     prompt = _build_excel_prompt(excel_text) if excel_parts else _read_prompt_template("common")
+
     payload: dict[str, object] = {
         "model": MODEL_NAME,
         "prompt": prompt,
@@ -424,7 +438,8 @@ def _fetch_and_download_next_task() -> tuple[dict[str, Any] | None, int]:
     task_next_url = api_config["task_next_url"]
 
     try:
-        response = requests.get(task_next_url, timeout=30)
+        response = TASK_HTTP_SESSION.get(task_next_url, timeout=30)
+
         response.raise_for_status()
     except requests.exceptions.ConnectionError:
         return {"error": "无法连接任务接口", "url": task_next_url}, 502
@@ -554,7 +569,8 @@ def get_task_file(task_id: str, file_ref: str):
     task_file_url = _build_task_file_url(task_id, file_ref)
 
     try:
-        response = requests.get(task_file_url, timeout=30)
+        response = TASK_HTTP_SESSION.get(task_file_url, timeout=30)
+
         response.raise_for_status()
     except requests.exceptions.ConnectionError:
         return jsonify({"error": "无法连接任务文件接口", "url": task_file_url}), 502
@@ -601,7 +617,8 @@ def _post_task_result(task_id: str, payload: dict[str, Any]) -> tuple[Any, int]:
     task_result_url = _build_task_result_url(task_id)
 
     try:
-        response = requests.post(task_result_url, json=payload, timeout=60)
+        response = TASK_HTTP_SESSION.post(task_result_url, json=payload, timeout=60)
+
         response.raise_for_status()
     except requests.exceptions.ConnectionError:
         return {"error": "无法连接任务结果回传接口", "url": task_result_url}, 502
